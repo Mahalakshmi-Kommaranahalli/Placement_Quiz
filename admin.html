@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <meta name="theme-color" content="#070b14">
+  <title>Faculty Admin Console | CSE Placement Quiz Arena</title>
+  <meta name="description" content="Official Faculty and Administrator Console for monitoring live placement quiz attempts, tracking proctoring violations, reviewing student answer sheets, and analyzing question-level performance.">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body class="dark-theme admin-body">
+
+  <!-- Ambient Glows -->
+  <div class="ambient-glow glow-top-left"></div>
+  <div class="ambient-glow glow-bottom-right"></div>
+
+  <!-- Notification Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- ========================================== -->
+  <!-- FACULTY LOGIN GATE / SECURITY SCREEN       -->
+  <!-- ========================================== -->
+  <div id="adminAuthGate" class="admin-auth-screen">
+    <div class="card admin-auth-card">
+      <div class="admin-auth-icon">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+          <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+        </svg>
+      </div>
+
+      <div class="badge-pill pill-primary" style="margin-bottom: 0.6rem;">RESTRICTED ACCESS</div>
+      <h1 class="auth-title">Faculty Admin Console</h1>
+      <p class="auth-subtitle">5th Sem CSE Placement Training Assessment</p>
+      <p class="auth-desc">Authorized faculty and administrators only. Enter your console security PIN to access live candidate feeds, logs, and answers.</p>
+
+      <form id="adminAuthForm" class="auth-form" novalidate>
+        <div class="form-field">
+          <label for="adminPinInput">Faculty Security PIN</label>
+          <div class="input-container">
+            <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            <input type="password" id="adminPinInput" placeholder="Enter PIN (Default: admin123)" autocomplete="current-password" required>
+          </div>
+          <div id="pinError" class="validation-message">Incorrect security PIN. Please try again.</div>
+        </div>
+
+        <button type="submit" id="unlockAdminBtn" class="btn btn-primary btn-full btn-touch">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+          <span>Unlock Admin Console</span>
+        </button>
+
+        <div class="pin-hint-box">
+          <small>🔑 Default Forum Security PIN: <code>admin123</code></small>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MAIN ADMIN CONSOLE CONTENT                 -->
+  <!-- ========================================== -->
+  <div id="adminMainWrapper" class="admin-wrapper hidden">
+
+    <!-- ADMIN HEADER & MASTHEAD -->
+    <header class="admin-top-bar">
+      <div class="admin-brand">
+        <div class="admin-crest">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <path d="M9 12l2 2 4-4"/>
+          </svg>
+        </div>
+        <div class="admin-brand-info">
+          <div class="brand-line-one">
+            <span class="admin-title">Faculty Admin Console</span>
+            <span class="console-tag">RESTRICTED</span>
+          </div>
+          <span class="admin-subtitle">5th Sem CSE Placement Assessment • Real-Time Oversight</span>
+        </div>
+      </div>
+
+      <!-- Live Sync Status -->
+      <div class="live-sync-indicator">
+        <span class="sync-dot"></span>
+        <span class="sync-text" id="syncStatusText">Live Feed Active</span>
+      </div>
+
+      <!-- Global Toolbar Actions -->
+      <div class="admin-actions-bar">
+        <button id="exportCsvBtn" class="btn btn-primary btn-sm btn-touch">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Export CSV</span>
+        </button>
+        <button id="refreshFeedBtn" class="btn btn-secondary btn-sm btn-touch" title="Manually refresh all session records">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          <span>Refresh</span>
+        </button>
+        <button id="lockAdminBtn" class="btn btn-outline btn-sm btn-touch" title="Lock Console">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          <span>Lock</span>
+        </button>
+        <button id="clearAllRecordsBtn" class="btn btn-ghost text-rose btn-sm btn-touch" title="Clear all local candidate logs">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Reset</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN ADMIN DASHBOARD CONTAINER -->
+    <main class="admin-main-container">
+      
+      <!-- 6 Executive KPI Metric Tiles -->
+      <section class="kpi-grid">
+        <div class="card kpi-card border-blue">
+          <div class="kpi-icon-box icon-blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Total Submissions</span>
+            <strong id="kpiTotalCandidates" class="kpi-value">0</strong>
+            <span class="kpi-hint">Completed attempts logged</span>
+          </div>
+        </div>
+
+        <div class="card kpi-card border-purple">
+          <div class="kpi-icon-box icon-purple">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Class Average Score</span>
+            <strong id="kpiAverageScore" class="kpi-value">0.0 <small>/ 30</small></strong>
+            <span class="kpi-hint" id="kpiAveragePct">0.0% Mean Accuracy</span>
+          </div>
+        </div>
+
+        <div class="card kpi-card border-green">
+          <div class="kpi-icon-box icon-green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Placement Ready (27+)</span>
+            <strong id="kpiPlacementReadyCount" class="kpi-value text-green">0</strong>
+            <span class="kpi-hint" id="kpiPlacementReadyPct">0% of cohort</span>
+          </div>
+        </div>
+
+        <div class="card kpi-card border-gold">
+          <div class="kpi-icon-box icon-gold">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Cohort High Score</span>
+            <strong id="kpiHighScore" class="kpi-value">0 <small>/ 30</small></strong>
+            <span class="kpi-hint" id="kpiHighScoreStudent">Top Performer</span>
+          </div>
+        </div>
+
+        <div class="card kpi-card border-rose">
+          <div class="kpi-icon-box icon-rose">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Tab-Switch Violations</span>
+            <strong id="kpiViolationCount" class="kpi-value text-rose">0</strong>
+            <span class="kpi-hint">Terminated for cheating</span>
+          </div>
+        </div>
+
+        <div class="card kpi-card border-emerald">
+          <div class="kpi-icon-box icon-emerald">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div class="kpi-details">
+            <span class="kpi-label">Live Active Sessions</span>
+            <strong id="kpiActiveSessionsCount" class="kpi-value text-blue">0</strong>
+            <span class="kpi-hint" id="kpiActiveDetails">No active candidate</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- REAL-TIME ACTIVE SESSIONS BANNER -->
+      <section id="activeSessionsSection" class="active-sessions-panel card hidden">
+        <div class="panel-header-row">
+          <div class="panel-title-group">
+            <span class="pulse-indicator"></span>
+            <h3 class="panel-title">In-Progress Assessment Feed</h3>
+          </div>
+          <span class="badge-pill pill-primary">Live Candidate Sync</span>
+        </div>
+        <div id="activeSessionsList" class="active-sessions-list">
+          <!-- Generated dynamically via JS -->
+        </div>
+      </section>
+
+      <!-- CANDIDATE DIRECTORY & SUBMISSIONS TABLE -->
+      <section class="card directory-card">
+        <div class="directory-toolbar">
+          <div class="dir-title-box">
+            <h2 class="dir-title">Candidate Assessment Log</h2>
+            <p class="dir-desc">Complete chronological record of student submissions, scores, and proctoring logs.</p>
+          </div>
+
+          <div class="dir-controls">
+            <!-- Search input -->
+            <div class="dir-search-wrap">
+              <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              <input type="text" id="candidateSearchInput" placeholder="Search by Student Name or USN..." autocomplete="off">
+            </div>
+
+            <!-- Status Filter Pills -->
+            <div class="dir-filters">
+              <button class="dir-filter-tab active" data-filter="all">All (<span id="countTabAll">0</span>)</button>
+              <button class="dir-filter-tab" data-filter="completed">Completed (<span id="countTabCompleted">0</span>)</button>
+              <button class="dir-filter-tab filter-disqualified" data-filter="disqualified">⚠️ Disqualified (<span id="countTabDisqualified">0</span>)</button>
+              <button class="dir-filter-tab" data-filter="top">Placement Ready (<span id="countTabTop">0</span>)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Candidate Submissions Table -->
+        <div class="table-responsive">
+          <table class="admin-table" id="candidatesTable">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Date &amp; Time</th>
+                <th>Student Name</th>
+                <th>USN</th>
+                <th>Score (/30)</th>
+                <th>Accuracy</th>
+                <th>Duration</th>
+                <th>Proctoring Status</th>
+                <th>Verdict</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="candidatesTableBody">
+              <!-- Dynamic rows -->
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Empty State -->
+        <div id="tableEmptyState" class="table-empty-box hidden">
+          <div class="empty-icon">📂</div>
+          <h3>No Assessment Records Found</h3>
+          <p>No student submissions match your query. Students who take the quiz from the student portal will appear here in real time.</p>
+        </div>
+      </section>
+
+      <!-- QUESTION-LEVEL ERROR & DIFFICULTY ANALYTICS -->
+      <section class="card analytics-card">
+        <div class="analytics-header">
+          <div>
+            <h3 class="analytics-title">Question-Level Performance &amp; Difficulty Matrix</h3>
+            <p class="analytics-subtitle">Item analysis across all 30 syllabus questions to identify cohort knowledge gaps and challenging topics.</p>
+          </div>
+        </div>
+
+        <div class="question-analytics-grid" id="questionAnalyticsGrid">
+          <!-- 30 question cards generated dynamically -->
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: CANDIDATE SUBMISSION INSPECTOR      -->
+  <!-- ========================================== -->
+  <div id="inspectorModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="inspectorCandidateName">
+    <div class="card modal-content-box modal-wide inspector-modal-box">
+      <div class="inspector-header">
+        <div>
+          <span class="meta-pill pill-primary">CANDIDATE RESPONSE AUDIT</span>
+          <h2 id="inspectorCandidateName" class="inspector-name">Candidate Name</h2>
+          <div class="inspector-meta-row">
+            <span class="inspector-meta-tag">USN: <strong id="inspectorCandidateUSN">USN</strong></span>
+            <span class="inspector-meta-tag">Timestamp: <strong id="inspectorTimestamp">Date</strong></span>
+            <span class="inspector-meta-tag">Time Taken: <strong id="inspectorDuration">Duration</strong></span>
+            <span class="inspector-meta-tag">Score: <strong id="inspectorScore" class="text-green">0 / 30</strong> (<span id="inspectorPct">0%</span>)</span>
+          </div>
+        </div>
+        <button id="closeInspectorModalBtn" class="modal-close-btn" aria-label="Close Inspector">&times;</button>
+      </div>
+
+      <div id="inspectorViolationNotice" class="alert-box-warning hidden" style="margin: 1rem 0;">
+        ⚠️ <strong>Security Violation:</strong> This candidate was disqualified and auto-submitted for switching browser tabs or leaving the examination app.
+      </div>
+
+      <div class="inspector-body" id="inspectorQuestionsList">
+        <!-- 30 question responses rendered dynamically -->
+      </div>
+
+      <div class="modal-footer-toolbar" style="margin-top: 1.5rem;">
+        <button id="printInspectorSheetBtn" class="btn btn-secondary btn-touch">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+          <span>Print Audit Sheet</span>
+        </button>
+        <button id="closeInspectorFooterBtn" class="btn btn-primary btn-touch">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="questions.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>

@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
+  <meta name="theme-color" content="#070a12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>CSE Placement Quiz Arena | 5th Semester Placement Training</title>
+  <meta name="description" content="Mobile-optimized placement-training MCQ quiz platform for 5th Semester CSE students with real-time countdown, strict tab-switch proctoring, thumb-friendly navigation, instant scoring, and answer review.">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-theme">
+
+  <!-- Ambient Backdrop Glows -->
+  <div class="ambient-glow glow-top-left"></div>
+  <div class="ambient-glow glow-bottom-right"></div>
+
+  <!-- Notification Toast Container -->
+  <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+  <!-- ========================================== -->
+  <!-- SCREEN 1: REGISTRATION / LANDING PAGE     -->
+  <!-- (Student-Only Access - No Admin Controls) -->
+  <!-- ========================================== -->
+  <section id="registrationScreen" class="screen active">
+    <header class="landing-hero">
+      <div class="hero-top-badge">
+        <span class="pulse-indicator"></span>
+        <span>VTU 5th Sem CSE • Forum Activity</span>
+      </div>
+      
+      <div class="hero-logo-box">
+        <div class="logo-shield">
+          <svg width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+          </svg>
+        </div>
+      </div>
+
+      <h1 class="hero-headline">CSE Placement Quiz Arena</h1>
+      <p class="hero-subheadline">5th Semester CSE | Student Forum Activity</p>
+      <p class="hero-brief">Core CS placement assessment: Data Structures, Algorithms, Java, DBMS, OS, Networks &amp; Computing.</p>
+      
+      <!-- Anti-Cheating Protocol Notice for Mobile -->
+      <div class="proctoring-alert-banner">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span><strong>Mobile Proctoring Active:</strong> Do not switch apps, leave browser tabs, or minimize the window. Doing so will immediately <strong>terminate your test</strong> and log a violation.</span>
+      </div>
+    </header>
+
+    <main class="landing-content">
+      <!-- Registration Card -->
+      <div class="card registration-card">
+        <div class="card-badge">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span>Candidate Details</span>
+        </div>
+        <h2 class="form-title">Student Registration</h2>
+        <p class="form-instructions">Enter your credentials to initiate your timed 30-question session.</p>
+
+        <form id="registrationForm" novalidate>
+          <div class="form-field">
+            <label for="studentNameInput">Full Name <span class="required-star">*</span></label>
+            <div class="input-container">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              <input type="text" id="studentNameInput" placeholder="e.g. Rahul Sharma" autocomplete="name" required inputmode="text">
+            </div>
+            <div id="nameError" class="validation-message">Please enter your full name (minimum 2 characters).</div>
+          </div>
+
+          <div class="form-field">
+            <label for="studentUSNInput">University Seat Number (USN) <span class="required-star">*</span></label>
+            <div class="input-container">
+              <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg>
+              <input type="text" id="studentUSNInput" placeholder="e.g. 1MS22CS045" autocomplete="off" required autocapitalize="characters" style="text-transform: uppercase;">
+            </div>
+            <div id="usnError" class="validation-message">Please enter a valid USN.</div>
+          </div>
+
+          <div class="form-button-group">
+            <button type="submit" id="startQuizBtn" class="btn btn-primary btn-cta btn-touch">
+              <span>Start Assessment</span>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            </button>
+            <button type="button" id="viewHistoryLandingBtn" class="btn btn-outline btn-touch">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span>Past Attempts</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Active Session Resume Banner -->
+        <div id="resumeSessionBanner" class="resume-session-banner hidden">
+          <div class="resume-icon">⚡</div>
+          <div class="resume-info">
+            <strong>Active Session Saved</strong>
+            <p id="resumeSessionDetails">You have an ongoing test attempt stored on this device.</p>
+          </div>
+          <button id="resumeTestBtn" class="btn btn-accent btn-sm btn-touch">Resume</button>
+        </div>
+      </div>
+
+      <!-- Test Rules & Information -->
+      <div class="instructions-card card">
+        <h3 class="instructions-header">Test Pattern &amp; Guidelines</h3>
+        <div class="rules-grid">
+          <div class="rule-box">
+            <div class="rule-icon-circle blue-glow">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            </div>
+            <div class="rule-info">
+              <h4>30 Questions</h4>
+              <p>Curated technical MCQs from core 5th Sem CS domains.</p>
+            </div>
+          </div>
+
+          <div class="rule-box">
+            <div class="rule-icon-circle purple-glow">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            </div>
+            <div class="rule-info">
+              <h4>30 Minutes Duration</h4>
+              <p>Live countdown with alerts at 5 min and 1 min marks.</p>
+            </div>
+          </div>
+
+          <div class="rule-box">
+            <div class="rule-icon-circle green-glow">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+            </div>
+            <div class="rule-info">
+              <h4>Grading Scheme</h4>
+              <p>+1 mark for correct answers. <strong>No negative marking</strong>.</p>
+            </div>
+          </div>
+
+          <div class="rule-box">
+            <div class="rule-icon-circle rose-glow">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </div>
+            <div class="rule-info">
+              <h4>Tab &amp; App Switch Lock</h4>
+              <p>Leaving the browser or switching apps immediately <strong>disqualifies and ends the test</strong>.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="keyboard-tips-banner">
+          <div class="kbd-title">📱 Phone Navigation Tips:</div>
+          <div class="kbd-items">
+            <span>Tap options directly to select</span>
+            <span>Use bottom bar to navigate</span>
+            <span>Tap "Palette" to jump questions</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Clean Student Footer (No Admin Login Shown) -->
+    <footer class="landing-footer">
+      <div class="footer-inner" style="justify-content: center; text-align: center;">
+        <span>CSE Placement Quiz Arena &copy; 2026 • 5th Semester CSE Student Forum Activity</span>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- SCREEN 2: ACTIVE QUIZ ARENA (PHONE READY) -->
+  <!-- ========================================== -->
+  <section id="quizScreen" class="screen">
+    <!-- Compact Sticky Mobile Top Navigation -->
+    <header class="quiz-navbar">
+      <div class="nav-branding">
+        <div class="nav-logo">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+        </div>
+        <div class="candidate-pill-compact">
+          <span id="headerCandidateName" class="cand-name-val">Candidate</span>
+          <span id="headerCandidateUSN" class="cand-usn-val">USN</span>
+        </div>
+      </div>
+
+      <!-- Live Proctoring Status Pill -->
+      <div class="proctor-pill">
+        <span class="proctor-dot"></span>
+        <span class="proctor-text">Locked</span>
+      </div>
+
+      <!-- Live Timer Badge -->
+      <div class="timer-badge-container">
+        <div id="liveTimerBadge" class="timer-badge">
+          <svg class="timer-clock-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="timerDisplay" class="timer-clock">30:00</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <button id="topSubmitBtn" class="btn btn-danger btn-sm btn-touch">
+          <span>Submit</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sub-Header Progress Track for Phone -->
+    <div class="mobile-sub-header">
+      <div class="mobile-meta-row">
+        <div class="meta-left">
+          <span id="questionCounterPill" class="meta-pill pill-primary">Q1 / 30</span>
+          <span id="questionTopicPill" class="meta-pill pill-topic">Topic</span>
+        </div>
+        <div class="meta-right">
+          <span id="answeredCounterText" class="answered-text">0 / 30</span>
+        </div>
+      </div>
+      <div class="linear-progress-wrapper" aria-label="Assessment Progress">
+        <div id="quizProgressBar" class="linear-progress-fill" style="width: 0%;"></div>
+      </div>
+    </div>
+
+    <!-- Quiz Workspace Layout -->
+    <div class="quiz-body-container">
+      
+      <!-- Current Question Workspace -->
+      <main class="question-workspace">
+        <!-- Question Statement & Options Card -->
+        <div class="card question-card">
+          <div class="question-header-row">
+            <span class="q-seq-num" id="qSequencePrefix">Q1.</span>
+            <h2 id="qStatement" class="q-statement-text">Loading question text...</h2>
+          </div>
+
+          <!-- 4 Options Grid -->
+          <div id="optionsGrid" class="options-container" role="radiogroup" aria-label="Question Multiple Choice Options">
+            <!-- Dynamic 4 Options -->
+          </div>
+        </div>
+
+        <!-- Inline Desktop / Tablet Action Buttons (also accessible above sticky footer) -->
+        <div class="workspace-nav-bar inline-desktop-nav">
+          <div class="nav-group-left">
+            <button id="prevBtn" class="btn btn-secondary btn-touch" disabled>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+              <span>Previous</span>
+            </button>
+            <button id="clearBtn" class="btn btn-ghost btn-touch" title="Clear your selected answer for this question">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+              <span>Clear Answer</span>
+            </button>
+          </div>
+
+          <div class="nav-group-right">
+            <button id="nextBtn" class="btn btn-primary btn-touch">
+              <span id="nextBtnText">Save &amp; Next</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+      </main>
+
+      <!-- Question Palette (Desktop Sidebar / Mobile Bottom Sheet) -->
+      <aside id="paletteSidebar" class="palette-sidebar">
+        <div class="palette-overlay-backdrop" id="paletteOverlayBackdrop"></div>
+        <div class="card palette-card">
+          <div class="drawer-handle-bar">
+            <span class="drawer-drag-pill"></span>
+          </div>
+
+          <div class="palette-top">
+            <div class="palette-heading">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+              <h3>Question Palette</h3>
+            </div>
+            <button id="mobilePaletteCloseBtn" class="btn-palette-close" aria-label="Close Palette">&times;</button>
+          </div>
+
+          <!-- Summary Indicator Chips -->
+          <div class="palette-counters-row">
+            <div class="p-counter chip-answered">
+              <span id="paletteAnsweredCount" class="counter-val">0</span>
+              <span class="counter-name">Answered</span>
+            </div>
+            <div class="p-counter chip-visited">
+              <span id="paletteVisitedCount" class="counter-val">0</span>
+              <span class="counter-name">Visited</span>
+            </div>
+            <div class="p-counter chip-unvisited">
+              <span id="paletteUnvisitedCount" class="counter-val">30</span>
+              <span class="counter-name">Not Visited</span>
+            </div>
+          </div>
+
+          <!-- 30 Questions Grid -->
+          <div id="paletteGrid" class="palette-numbers-grid" role="navigation" aria-label="Jump to specific question">
+            <!-- 30 buttons generated dynamically -->
+          </div>
+
+          <!-- Palette Legend -->
+          <div class="palette-legend-box">
+            <div class="legend-row">
+              <div class="legend-entry"><span class="legend-circle bg-current"></span> Current</div>
+              <div class="legend-entry"><span class="legend-circle bg-answered"></span> Answered</div>
+            </div>
+            <div class="legend-row">
+              <div class="legend-entry"><span class="legend-circle bg-visited"></span> Visited</div>
+              <div class="legend-entry"><span class="legend-circle bg-unvisited"></span> Unvisited</div>
+            </div>
+          </div>
+
+          <!-- Final Submit Button -->
+          <div class="palette-footer-actions">
+            <button id="sidebarSubmitBtn" class="btn btn-danger btn-full btn-touch">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span>Submit Entire Test</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- PHONE STICKY BOTTOM ACTION TOOLBAR         -->
+    <!-- Thumb-friendly mobile navigation bar       -->
+    <!-- ========================================== -->
+    <nav class="mobile-bottom-nav-bar" aria-label="Mobile Navigation Toolbar">
+      <button id="mobileFooterPrevBtn" class="mobile-nav-btn" disabled>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        <span>Prev</span>
+      </button>
+
+      <button id="mobileFooterPaletteBtn" class="mobile-palette-pill-btn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <span id="mobileFooterPaletteText">Palette Q1</span>
+        <span id="mobileFooterCountBadge" class="mobile-count-badge">0/30</span>
+      </button>
+
+      <button id="mobileFooterClearBtn" class="mobile-clear-icon-btn" title="Clear selection">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+      </button>
+
+      <button id="mobileFooterNextBtn" class="mobile-nav-btn btn-nav-primary">
+        <span id="mobileFooterNextText">Next</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </nav>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- SCREEN 3: TAB-SWITCH VIOLATION SCREEN      -->
+  <!-- ========================================== -->
+  <section id="violationScreen" class="screen">
+    <div class="violation-container">
+      <div class="card violation-card">
+        <div class="violation-icon-box">
+          <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+        </div>
+
+        <h1 class="violation-title">Assessment Terminated</h1>
+        <p class="violation-subtitle">Proctoring Rule Violation: Phone App / Tab Switch Detected</p>
+
+        <div class="violation-details-card">
+          <div class="v-row">
+            <span>Candidate:</span>
+            <strong id="violationCandidateName">Candidate</strong>
+          </div>
+          <div class="v-row">
+            <span>USN:</span>
+            <strong id="violationCandidateUSN">USN</strong>
+          </div>
+          <div class="v-row">
+            <span>Timestamp:</span>
+            <strong id="violationTimeVal" class="text-rose">Timestamp</strong>
+          </div>
+          <div class="v-row">
+            <span>Status:</span>
+            <span class="badge-pill pill-violation">Disqualified &amp; Auto-Submitted</span>
+          </div>
+          <div class="v-row">
+            <span>Score Recorded:</span>
+            <strong id="violationScoreVal" class="text-amber">0 / 30</strong>
+          </div>
+        </div>
+
+        <div class="violation-warning-alert">
+          <strong>Security Logging Notice:</strong> You switched browser tabs or left the active examination app. In accordance with university forum testing policy, your test session has been terminated and logged to the <strong>Faculty Admin Portal</strong>.
+        </div>
+
+        <div class="violation-button-row">
+          <button id="viewViolationScorecardBtn" class="btn btn-primary btn-full btn-touch">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span>View Recorded Scorecard &amp; Review</span>
+          </button>
+          <button id="returnHomeViolationBtn" class="btn btn-outline btn-full btn-touch">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>Return to Landing Screen</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- SCREEN 4: RESULT DASHBOARD                 -->
+  <!-- ========================================== -->
+  <section id="resultScreen" class="screen">
+    <div class="result-wrapper">
+      
+      <!-- Top Result Hero Card -->
+      <div class="card result-hero-card">
+        <div class="hero-flex">
+          <div class="hero-candidate-info">
+            <div class="scorecard-chip" id="resultCardTypeChip">OFFICIAL PERFORMANCE REPORT</div>
+            <h1 id="resultStudentName" class="candidate-result-name">Student Name</h1>
+            <div class="candidate-meta-badges">
+              <span class="meta-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M7 7h10"/><path d="M7 12h10"/><path d="M7 17h10"/></svg>
+                <strong id="resultStudentUSN">1MS22CS000</strong>
+              </span>
+              <span class="meta-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                <span id="resultAttemptTimestamp">Attempt Date</span>
+              </span>
+              <span class="meta-tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                <span>Time: <strong id="resultDuration">00:00</strong></span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Circular Score Ring Visual -->
+          <div class="score-ring-container">
+            <svg class="score-ring-svg" viewBox="0 0 160 160">
+              <circle class="ring-bg" cx="80" cy="80" r="68"></circle>
+              <circle id="scoreRingProgress" class="ring-progress" cx="80" cy="80" r="68" stroke-dasharray="427.26" stroke-dashoffset="427.26"></circle>
+            </svg>
+            <div class="ring-center-stats">
+              <span id="resultScoreNum" class="ring-score">0</span>
+              <span class="ring-divider">/ 30</span>
+              <span id="resultPercentageNum" class="ring-percentage">0%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Performance Verdict Banner -->
+        <div id="verdictBanner" class="verdict-banner-box">
+          <div id="verdictEmoji" class="verdict-icon">🏆</div>
+          <div class="verdict-text-group">
+            <h3 id="verdictHeading" class="verdict-heading">Evaluation Verdict</h3>
+            <p id="verdictDescription" class="verdict-description">Your performance summary.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 Metric Cards -->
+      <div class="metrics-dashboard-grid">
+        <div class="card metric-tile card-accent-blue">
+          <div class="metric-icon icon-blue">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          </div>
+          <div class="metric-body">
+            <span class="metric-title">Total Score</span>
+            <div class="metric-value"><strong id="metricTotalScore">0</strong> <span class="metric-sub">/ 30</span></div>
+          </div>
+        </div>
+
+        <div class="card metric-tile card-accent-purple">
+          <div class="metric-icon icon-purple">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+          </div>
+          <div class="metric-body">
+            <span class="metric-title">Accuracy Rate</span>
+            <div class="metric-value"><strong id="metricAccuracy">0%</strong></div>
+          </div>
+        </div>
+
+        <div class="card metric-tile card-accent-green">
+          <div class="metric-icon icon-green">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+          <div class="metric-body">
+            <span class="metric-title">Correct</span>
+            <div class="metric-value text-green"><strong id="metricCorrectAnswers">0</strong></div>
+          </div>
+        </div>
+
+        <div class="card metric-tile card-accent-rose">
+          <div class="metric-icon icon-rose">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+          </div>
+          <div class="metric-body">
+            <span class="metric-title">Incorrect / Skipped</span>
+            <div class="metric-value">
+              <span class="text-rose" id="metricIncorrectAnswers">0</span>
+              <span class="metric-slash">/</span>
+              <span class="text-amber" id="metricSkippedAnswers">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Navigation Toolbar -->
+      <div class="results-toolbar">
+        <a href="#detailedReviewSection" class="btn btn-primary btn-touch">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span>Review Detailed Answers</span>
+        </a>
+        <button id="retakeQuizBtn" class="btn btn-accent btn-touch">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg>
+          <span>Retake Quiz</span>
+        </button>
+        <button id="viewHistoryFromResultsBtn" class="btn btn-outline btn-touch">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Attempt History</span>
+        </button>
+        <button id="printScorecardBtn" class="btn btn-ghost btn-touch">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></svg>
+          <span>Print Scorecard</span>
+        </button>
+      </div>
+
+      <!-- ========================================== -->
+      <!-- SECTION: DETAILED ANSWER REVIEW            -->
+      <!-- ========================================== -->
+      <section id="detailedReviewSection" class="review-zone">
+        <div class="card review-toolbar-card">
+          <div class="review-title-wrap">
+            <span class="meta-pill pill-primary">FACULTY ANSWER KEY &amp; EXPLANATIONS</span>
+            <h2 class="review-main-title">Answer Key &amp; Conceptual Review</h2>
+            <p class="review-subtitle">Examine the official faculty answer key, compare your choices, and study the underlying computer science principles.</p>
+          </div>
+
+          <!-- Review Filters -->
+          <div class="review-filter-actions">
+            <div class="filter-pills-row" role="tablist" aria-label="Review filter options">
+              <button class="filter-tab active" data-filter="all">
+                All (<span id="filterCountAll">30</span>)
+              </button>
+              <button class="filter-tab tab-correct" data-filter="correct">
+                ✓ Correct (<span id="filterCountCorrect">0</span>)
+              </button>
+              <button class="filter-tab tab-incorrect" data-filter="incorrect">
+                ✗ Incorrect (<span id="filterCountIncorrect">0</span>)
+              </button>
+              <button class="filter-tab tab-unanswered" data-filter="unanswered">
+                ○ Skipped (<span id="filterCountUnanswered">0</span>)
+              </button>
+            </div>
+
+            <button id="toggleAllExplanationsBtn" class="btn btn-sm btn-outline btn-touch">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 18 17 13"/><polyline points="7 6 12 11 17 6"/></svg>
+              <span>Expand All Explanations</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dynamic Review List -->
+        <div id="reviewCardsList" class="review-cards-list">
+          <!-- 30 review cards generated dynamically -->
+        </div>
+      </section>
+
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- MODAL: TEST SUBMIT CONFIRMATION            -->
+  <!-- ========================================== -->
+  <div id="submitConfirmationModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <div class="card modal-content-box">
+      <div class="modal-icon-header amber-badge">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      </div>
+
+      <h3 id="confirmTitle" class="modal-heading">Submit Assessment?</h3>
+      <p class="modal-caption">Please review your submission status below before ending the session.</p>
+
+      <div class="submission-stats-card">
+        <div class="sub-stat-row">
+          <span>Answered Questions:</span>
+          <strong id="confirmAnsweredVal" class="text-green">0 / 30</strong>
+        </div>
+        <div class="sub-stat-row">
+          <span>Unanswered Questions:</span>
+          <strong id="confirmUnansweredVal" class="text-amber">0 / 30</strong>
+        </div>
+        <div class="sub-stat-row">
+          <span>Time Remaining:</span>
+          <strong id="confirmTimeLeftVal" class="text-blue">00:00</strong>
+        </div>
+      </div>
+
+      <div id="unansweredWarningAlert" class="alert-box-warning hidden">
+        ⚠️ Warning: You have unattempted questions! Unanswered questions receive 0 marks.
+      </div>
+
+      <div class="modal-button-row">
+        <button id="cancelSubmitModalBtn" class="btn btn-secondary btn-touch">Keep Testing</button>
+        <button id="finalizeSubmitModalBtn" class="btn btn-danger btn-touch">Confirm &amp; Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: ATTEMPT HISTORY                     -->
+  <!-- ========================================== -->
+  <div id="historyModal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="card modal-content-box modal-wide">
+      <div class="modal-top-bar">
+        <div class="history-header-title">
+          <div class="modal-icon-header purple-badge">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <div>
+            <h3 id="historyTitle" class="modal-heading">Attempt History</h3>
+            <p class="modal-caption">Performance log stored securely in your browser's LocalStorage.</p>
+          </div>
+        </div>
+        <button id="closeHistoryModalBtn" class="modal-close-btn" aria-label="Close modal">&times;</button>
+      </div>
+
+      <!-- Historical Aggregate Stats -->
+      <div class="history-stats-banner">
+        <div class="h-stat-tile">
+          <span class="h-stat-label">Total Attempts</span>
+          <strong id="histTotalAttemptsCount" class="h-stat-num">0</strong>
+        </div>
+        <div class="h-stat-tile">
+          <span class="h-stat-label">Highest Score</span>
+          <strong id="histHighestScoreVal" class="h-stat-num text-green">0 / 30</strong>
+        </div>
+        <div class="h-stat-tile">
+          <span class="h-stat-label">Average</span>
+          <strong id="histAvgAccuracyVal" class="h-stat-num text-blue">0%</strong>
+        </div>
+      </div>
+
+      <!-- History Records Container -->
+      <div id="historyTableContainer" class="history-records-wrapper">
+        <!-- Generated dynamically via JS -->
+      </div>
+
+      <div class="modal-footer-toolbar">
+        <button id="clearHistoryBtn" class="btn btn-ghost text-rose btn-touch">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          <span>Clear History</span>
+        </button>
+        <button id="closeHistoryFooterBtn" class="btn btn-secondary btn-touch">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script src="questions.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>
