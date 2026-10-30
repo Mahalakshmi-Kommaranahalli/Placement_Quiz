@@ -33,26 +33,22 @@
 
 ## 🚀 How to Run Locally
 
-You can run the platform directly without needing any build tools, database setups, or web server configurations.
+You can run the platform without build tools, dependencies, or a database. Use a lightweight local web server so the student and admin pages share browser storage.
 
-### Option 1: Direct Browser Launch (Easiest)
-1. Open the `CSE_Placement_Quiz_Arena` folder in File Explorer.
-2. Double-click **`index.html`** to take the test as a student.
-3. In another tab or window, double-click **`admin.html`** to observe the test in real time as an administrator!
+### Option 1: Python Built-In HTTP Server (Recommended)
+The student and admin pages must use the **same host and port** to share browser storage and live updates. Do not open the HTML files directly with `file://`, or mix `localhost` and `127.0.0.1`.
+
+1. Open PowerShell / Command Prompt in the `CSE_Placement_Quiz_Arena` folder and run:
+   ```bash
+   python -m http.server 8080
+   ```
+2. Open the student portal at `http://localhost:8080/index.html`.
+3. Open the admin console at `http://localhost:8080/admin.html`.
 
 ### Option 2: Run via VS Code / Antigravity Live Server
 1. Open the `Placement Quiz` workspace in VS Code or Antigravity.
 2. Right-click `CSE_Placement_Quiz_Arena/index.html` and choose **"Open with Live Server"**.
-3. In another tab, open `http://127.0.0.1:5500/CSE_Placement_Quiz_Arena/admin.html`.
-
-### Option 3: Python Built-In HTTP Server
-Open PowerShell / Command Prompt in the project folder and run:
-```bash
-cd "CSE_Placement_Quiz_Arena"
-python -m http.server 8080
-```
-- Student Portal: [`http://localhost:8080/index.html`](http://localhost:8080/index.html)
-- Faculty Admin Console: [`http://localhost:8080/admin.html`](http://localhost:8080/admin.html)
+3. In another tab, open `admin.html` through that same Live Server origin. Do not change the hostname or port.
 
 ---
 

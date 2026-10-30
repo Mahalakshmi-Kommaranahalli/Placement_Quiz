@@ -311,6 +311,12 @@
 
     if (filtered.length === 0) {
       DOM.candidatesTableBody.innerHTML = '';
+      const emptyStateDescription = DOM.tableEmptyState.querySelector('p');
+      if (emptyStateDescription) {
+        emptyStateDescription.textContent = window.location.protocol === 'file:' && records.length === 0
+          ? 'The student and admin pages were opened as separate local files, so they may not share browser storage. Run a local web server and open both pages from the same host and port (for example, http://localhost:8080). Records saved from file:// are not automatically transferred.'
+          : 'No student submissions match your query. Students who take the quiz from the student portal will appear here in real time.';
+      }
       DOM.tableEmptyState.classList.remove('hidden');
       return;
     }
@@ -757,4 +763,3 @@
   });
 
 })();
-
