@@ -456,6 +456,12 @@
   border: 1px solid var(--emerald-border);
 }
 
+.status-active {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
 .status-disqualified {
   background: var(--rose-subtle);
   color: #f87171;
@@ -812,4 +818,3 @@
     grid-template-columns: 1fr;
   }
 }
-

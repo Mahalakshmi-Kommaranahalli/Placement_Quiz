@@ -15,6 +15,8 @@
     ADMIN_FEED: 'cse_quiz_arena_live_feed'
   };
 
+  const cloudClientPromise = import('./cloud-client.js').then(module => module.quizCloud);
+
   // BroadcastChannel for Live Synchronization
   let adminChannel = null;
   try {
@@ -26,10 +28,11 @@
   // Admin State
   const adminState = {
     records: [],
-    activeSession: null,
+    activeSessions: [],
     searchQuery: '',
     statusFilter: 'all',
-    selectedCandidate: null
+    selectedCandidate: null,
+    cloudErrorShown: false
   };
 
   // DOM Elements Cache
@@ -38,8 +41,11 @@
     adminAuthGate: document.getElementById('adminAuthGate'),
     adminAuthCard: document.querySelector('.admin-auth-card'),
     adminAuthForm: document.getElementById('adminAuthForm'),
-    adminPinInput: document.getElementById('adminPinInput'),
-    pinError: document.getElementById('pinError'),
+    adminEmailInput: document.getElementById('adminEmailInput'),
+    adminPasswordInput: document.getElementById('adminPasswordInput'),
+    adminAuthModeToggle: document.getElementById('adminAuthModeToggle'),
+    adminAuthModeLabel: document.getElementById('adminAuthModeLabel'),
+    adminAuthSubmitLabel: document.getElementById('adminAuthSubmitLabel'),
     unlockAdminBtn: document.getElementById('unlockAdminBtn'),
     adminMainWrapper: document.getElementById('adminMainWrapper'),
     lockAdminBtn: document.getElementById('lockAdminBtn'),
@@ -71,6 +77,7 @@
     candidateSearchInput: document.getElementById('candidateSearchInput'),
     countTabAll: document.getElementById('countTabAll'),
     countTabCompleted: document.getElementById('countTabCompleted'),
+    countTabActive: document.getElementById('countTabActive'),
     countTabDisqualified: document.getElementById('countTabDisqualified'),
     countTabTop: document.getElementById('countTabTop'),
     candidatesTableBody: document.getElementById('candidatesTableBody'),
@@ -99,6 +106,9 @@
   // ==========================================================================
 
   let isConsoleInitialized = false;
+  let isAdminSignUp = false;
+  let isAdminVerified = false;
+  let cloudRefreshInterval = null;
 
   function initAdminConsole() {
     if (!isConsoleInitialized) {
@@ -108,6 +118,10 @@
     }
     loadAllRecords();
     renderAllViews();
+    refreshCloudRecords();
+    if (!cloudRefreshInterval) {
+      cloudRefreshInterval = setInterval(refreshCloudRecords, 3000);
+    }
   }
 
   // ==========================================================================
@@ -123,8 +137,7 @@
         showAdminToast(`Live Update: ${msg.studentName || 'Candidate'} (${msg.type})`, 'info', 3000);
         
         // Refresh dataset
-        loadAllRecords();
-        renderAllViews();
+        refreshCloudRecords();
       };
     }
 
@@ -137,6 +150,7 @@
       ) {
         loadAllRecords();
         renderAllViews();
+        refreshCloudRecords();
       }
     });
   }
@@ -161,15 +175,65 @@
       if (activeStr) {
         const active = JSON.parse(activeStr);
         if (active && active.studentName && active.remainingSeconds > 0 && !active.isSubmitted) {
-          adminState.activeSession = active;
+          adminState.activeSessions = [active];
         } else {
-          adminState.activeSession = null;
+          adminState.activeSessions = [];
         }
       } else {
-        adminState.activeSession = null;
+        adminState.activeSessions = [];
       }
     } catch (e) {
-      adminState.activeSession = null;
+      adminState.activeSessions = [];
+    }
+  }
+
+  function mapCloudAttempt(attempt) {
+    return {
+      id: attempt.id,
+      name: attempt.name,
+      usn: attempt.usn,
+      timestamp: attempt.started_at,
+      score: Number(attempt.score || 0),
+      percentage: Number(attempt.percentage || 0),
+      timeTaken: attempt.time_taken || '',
+      isDisqualified: Boolean(attempt.is_disqualified),
+      verdictTitle: attempt.verdict_title || '',
+      breakdown: attempt.breakdown || [],
+      status: attempt.status,
+      currentQuestionIndex: Math.max(0, Number(attempt.current_question || 1) - 1),
+      answeredCount: Number(attempt.answered_count || 0),
+      remainingSeconds: Number(attempt.remaining_seconds || 0),
+      userAnswers: attempt.user_answers || {},
+      remoteRecord: true
+    };
+  }
+
+  async function refreshCloudRecords() {
+    try {
+      if (!isAdminVerified) return;
+      const client = await cloudClientPromise;
+      const { data, error } = await client
+        .from('quiz_attempts')
+        .select('*')
+        .order('started_at', { ascending: false })
+        .limit(1000);
+
+      if (error) throw error;
+
+      const legacyRecords = adminState.records.filter(record => !record.remoteRecord);
+      const remoteRecords = (data || []).map(mapCloudAttempt);
+      adminState.records = [...remoteRecords, ...legacyRecords];
+      adminState.activeSessions = remoteRecords.filter(record => record.status === 'active');
+      adminState.cloudErrorShown = false;
+      DOM.syncStatusText.textContent = `Live Feed Active • Updated ${new Date().toLocaleTimeString()}`;
+      renderAllViews();
+    } catch (error) {
+      console.error('Leaderboard refresh failed:', error);
+      DOM.syncStatusText.textContent = 'Database sync error';
+      if (!adminState.cloudErrorShown) {
+        adminState.cloudErrorShown = true;
+        showAdminToast('Could not refresh the shared student leaderboard. Check the network and database connection.', 'warning', 6000);
+      }
     }
   }
 
@@ -190,9 +254,10 @@
 
   function renderKPIs() {
     const records = adminState.records;
-    const total = records.length;
+    const completedRecords = records.filter(record => record.status !== 'active');
+    const total = completedRecords.length;
 
-    DOM.kpiTotalCandidates.textContent = total;
+    DOM.kpiTotalCandidates.textContent = records.length;
 
     if (total === 0) {
       DOM.kpiAverageScore.innerHTML = `0.0 <small>/ 30</small>`;
@@ -200,11 +265,11 @@
       DOM.kpiPlacementReadyCount.textContent = '0';
       DOM.kpiPlacementReadyPct.textContent = `0% of cohort`;
       DOM.kpiHighScore.innerHTML = `0 <small>/ 30</small>`;
-      DOM.kpiHighScoreStudent.textContent = `No submissions`;
+      DOM.kpiHighScoreStudent.textContent = records.length ? 'No completed attempts yet' : 'No submissions';
       DOM.kpiViolationCount.textContent = '0';
     } else {
       // Average Score
-      const totalScoreSum = records.reduce((sum, r) => sum + Number(r.score || 0), 0);
+      const totalScoreSum = completedRecords.reduce((sum, r) => sum + Number(r.score || 0), 0);
       const avgScore = (totalScoreSum / total).toFixed(1);
       const avgPct = ((totalScoreSum / (total * 30)) * 100).toFixed(1);
 
@@ -212,14 +277,14 @@
       DOM.kpiAveragePct.textContent = `${avgPct}% Mean Accuracy`;
 
       // Placement Ready Count (Score >= 27)
-      const placementReady = records.filter(r => Number(r.score || 0) >= 27);
+      const placementReady = completedRecords.filter(r => Number(r.score || 0) >= 27);
       const readyPct = Math.round((placementReady.length / total) * 100);
       DOM.kpiPlacementReadyCount.textContent = placementReady.length;
       DOM.kpiPlacementReadyPct.textContent = `${readyPct}% of cohort`;
 
       // High Score
-      let topRecord = records[0];
-      records.forEach(r => {
+      let topRecord = completedRecords[0];
+      completedRecords.forEach(r => {
         if (Number(r.score || 0) > Number(topRecord.score || 0)) {
           topRecord = r;
         }
@@ -228,14 +293,17 @@
       DOM.kpiHighScoreStudent.textContent = `${topRecord.name} (${topRecord.usn})`;
 
       // Violations Count
-      const violations = records.filter(r => r.isDisqualified === true);
+      const violations = completedRecords.filter(r => r.isDisqualified === true);
       DOM.kpiViolationCount.textContent = violations.length;
     }
 
     // Active Sessions
-    if (adminState.activeSession) {
-      DOM.kpiActiveSessionsCount.textContent = '1 Active';
-      DOM.kpiActiveDetails.textContent = `${adminState.activeSession.studentName} is testing`;
+    const activeCount = adminState.activeSessions.length;
+    if (activeCount > 0) {
+      DOM.kpiActiveSessionsCount.textContent = `${activeCount} Active`;
+      DOM.kpiActiveDetails.textContent = activeCount === 1
+        ? `${adminState.activeSessions[0].name || adminState.activeSessions[0].studentName} is testing`
+        : 'Students are currently testing';
     } else {
       DOM.kpiActiveSessionsCount.textContent = '0';
       DOM.kpiActiveDetails.textContent = `No active candidate`;
@@ -247,31 +315,34 @@
   // ==========================================================================
 
   function renderActiveSessions() {
-    const active = adminState.activeSession;
+    const activeSessions = adminState.activeSessions;
 
-    if (!active) {
+    if (activeSessions.length === 0) {
       DOM.activeSessionsSection.classList.add('hidden');
       DOM.activeSessionsList.innerHTML = '';
       return;
     }
 
     DOM.activeSessionsSection.classList.remove('hidden');
-    const answeredCount = Object.keys(active.userAnswers || {}).length;
-    const timeRemainingStr = formatTime(active.remainingSeconds || 0);
-
-    DOM.activeSessionsList.innerHTML = `
-      <div class="active-session-tile">
-        <div class="ast-info">
-          <strong>${escapeHtml(active.studentName)}</strong>
-          <span>USN: ${escapeHtml(active.studentUSN)}</span>
+    DOM.activeSessionsList.innerHTML = activeSessions.map(active => {
+      const answeredCount = active.answeredCount === undefined
+        ? Object.keys(active.userAnswers || {}).length
+        : active.answeredCount;
+      const currentQuestion = active.currentQuestionIndex || 0;
+      return `
+        <div class="active-session-tile">
+          <div class="ast-info">
+            <strong>${escapeHtml(active.name || active.studentName)}</strong>
+            <span>USN: ${escapeHtml(active.usn || active.studentUSN)}</span>
+          </div>
+          <div class="ast-meta">
+            <span class="badge-live">● Testing Live</span>
+            <div>Q${currentQuestion + 1} of 30 • ${answeredCount} answered</div>
+            <small style="color: #60a5fa; font-family: var(--font-mono);">${formatTime(active.remainingSeconds || 0)} remaining</small>
+          </div>
         </div>
-        <div class="ast-meta">
-          <span class="badge-live">● Testing Live</span>
-          <div>Q${(active.currentQuestionIndex || 0) + 1} of 30 • ${answeredCount} answered</div>
-          <small style="color: #60a5fa; font-family: var(--font-mono);">${timeRemainingStr} remaining</small>
-        </div>
-      </div>
-    `;
+      `;
+    }).join('');
   }
 
   // ==========================================================================
@@ -282,11 +353,12 @@
     const records = adminState.records;
 
     // Filter counts
-    const countCompleted = records.filter(r => !r.isDisqualified).length;
+    const countCompleted = records.filter(r => r.status !== 'active' && !r.isDisqualified).length;
     const countDisqualified = records.filter(r => r.isDisqualified).length;
-    const countTop = records.filter(r => Number(r.score || 0) >= 27).length;
+    const countTop = records.filter(r => r.status !== 'active' && Number(r.score || 0) >= 27).length;
 
     DOM.countTabAll.textContent = records.length;
+    DOM.countTabActive.textContent = records.filter(r => r.status === 'active').length;
     DOM.countTabCompleted.textContent = countCompleted;
     DOM.countTabDisqualified.textContent = countDisqualified;
     DOM.countTabTop.textContent = countTop;
@@ -294,15 +366,16 @@
     // Apply Filter & Search Query
     let filtered = records.filter(r => {
       // 1. Status Filter
-      if (adminState.statusFilter === 'completed' && r.isDisqualified) return false;
+      if (adminState.statusFilter === 'active' && r.status !== 'active') return false;
+      if (adminState.statusFilter === 'completed' && (r.status === 'active' || r.isDisqualified)) return false;
       if (adminState.statusFilter === 'disqualified' && !r.isDisqualified) return false;
-      if (adminState.statusFilter === 'top' && Number(r.score || 0) < 27) return false;
+      if (adminState.statusFilter === 'top' && (r.status === 'active' || Number(r.score || 0) < 27)) return false;
 
       // 2. Search Query
       if (adminState.searchQuery) {
         const q = adminState.searchQuery.toLowerCase();
-        const nameMatch = (r.name || '').toLowerCase().includes(q);
-        const usnMatch = (r.usn || '').toLowerCase().includes(q);
+        const nameMatch = (r.name || r.studentName || '').toLowerCase().includes(q);
+        const usnMatch = (r.usn || r.studentUSN || '').toLowerCase().includes(q);
         return nameMatch || usnMatch;
       }
 
@@ -313,9 +386,9 @@
       DOM.candidatesTableBody.innerHTML = '';
       const emptyStateDescription = DOM.tableEmptyState.querySelector('p');
       if (emptyStateDescription) {
-        emptyStateDescription.textContent = window.location.protocol === 'file:' && records.length === 0
-          ? 'The student and admin pages were opened as separate local files, so they may not share browser storage. Run a local web server and open both pages from the same host and port (for example, http://localhost:8080). Records saved from file:// are not automatically transferred.'
-          : 'No student submissions match your query. Students who take the quiz from the student portal will appear here in real time.';
+        emptyStateDescription.textContent = records.length === 0
+          ? 'No student attempts yet. Students who create an account and start the assessment will appear here automatically.'
+          : 'No student attempts match your search or selected filter.';
       }
       DOM.tableEmptyState.classList.remove('hidden');
       return;
@@ -325,39 +398,42 @@
     let rowsHtml = '';
 
     filtered.forEach((r, idx) => {
+      const isActive = r.status === 'active';
       const isViolation = Boolean(r.isDisqualified);
-      const statusBadge = isViolation
-        ? `<span class="status-badge status-disqualified">⚠️ Disqualified (Tab Switch)</span>`
-        : `<span class="status-badge status-completed">✓ Completed</span>`;
+      const statusBadge = isActive
+        ? `<span class="status-badge status-active">● Live • Q${Number(r.currentQuestionIndex || 0) + 1} / 30 • ${Number(r.answeredCount === undefined ? Object.keys(r.userAnswers || {}).length : r.answeredCount)} answered</span>`
+        : isViolation
+          ? `<span class="status-badge status-disqualified">⚠️ Disqualified (Tab Switch)</span>`
+          : `<span class="status-badge status-completed">✓ Completed</span>`;
 
       rowsHtml += `
         <tr>
           <td><span style="font-family: var(--font-mono); color: var(--text-dim);">#${filtered.length - idx}</span></td>
-          <td>${escapeHtml(r.timestamp)}</td>
+          <td>${escapeHtml(r.timestamp || '')}</td>
           <td class="student-col">
-            <strong>${escapeHtml(r.name)}</strong>
+            <strong>${escapeHtml(r.name || r.studentName)}</strong>
           </td>
           <td>
-            <small style="font-family: var(--font-mono); color: #a78bfa; font-weight: 700;">${escapeHtml(r.usn)}</small>
+            <small style="font-family: var(--font-mono); color: #a78bfa; font-weight: 700;">${escapeHtml(r.usn || r.studentUSN)}</small>
           </td>
           <td>
-            <strong class="${isViolation ? 'text-rose' : 'text-green'}">${r.score}</strong> <span style="color: var(--text-dim);">/ 30</span>
+            <strong class="${isActive ? 'text-blue' : isViolation ? 'text-rose' : 'text-green'}">${isActive ? '—' : r.score}</strong> <span style="color: var(--text-dim);">/ 30</span>
           </td>
           <td>
-            <strong class="text-blue">${r.percentage}%</strong>
+            <strong class="text-blue">${isActive ? '—' : `${r.percentage}%`}</strong>
           </td>
-          <td>${escapeHtml(r.timeTaken || 'N/A')}</td>
+          <td>${isActive ? `${formatTime(r.remainingSeconds || 0)} left` : escapeHtml(r.timeTaken || 'N/A')}</td>
           <td>${statusBadge}</td>
           <td>
             <span class="meta-pill ${isViolation ? 'pill-violation' : 'pill-primary'}" style="font-size: 0.72rem;">
-              ${escapeHtml(r.verdictTitle || 'Assessment Finalized')}
+              ${escapeHtml(isActive ? 'Assessment in progress' : r.verdictTitle || 'Assessment Finalized')}
             </span>
           </td>
           <td>
-            <button type="button" class="btn btn-secondary btn-sm inspect-btn" data-record-id="${r.id}">
+            ${isActive ? '<span>—</span>' : `<button type="button" class="btn btn-secondary btn-sm inspect-btn" data-record-id="${r.id}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               <span>Inspect</span>
-            </button>
+            </button>`}
           </td>
         </tr>
       `;
@@ -566,17 +642,25 @@
   // RESET ALL DATA
   // ==========================================================================
 
-  function handleClearAllRecords() {
+  async function handleClearAllRecords() {
     const confirmation = prompt('To permanently delete all candidate test submissions and audit records, type "RESET":');
     if (confirmation === 'RESET') {
       try {
         localStorage.removeItem(STORAGE_KEYS.ATTEMPT_HISTORY);
         localStorage.removeItem(STORAGE_KEYS.ACTIVE_ATTEMPT);
+        const client = await cloudClientPromise;
+        const { error } = await client
+          .from('quiz_attempts')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000');
+        if (error) throw error;
         loadAllRecords();
         renderAllViews();
+        await refreshCloudRecords();
         showAdminToast('All candidate assessment records have been permanently cleared.', 'info', 4000);
       } catch (e) {
-        console.warn('Error clearing records:', e);
+        console.error('Error clearing records:', e);
+        showAdminToast('Could not clear the shared leaderboard. Verify faculty access and try again.', 'warning', 6000);
       }
     } else if (confirmation !== null) {
       showAdminToast('Reset canceled: confirmation text did not match "RESET".', 'warning', 3000);
@@ -593,6 +677,7 @@
     DOM.refreshFeedBtn.addEventListener('click', () => {
       loadAllRecords();
       renderAllViews();
+      refreshCloudRecords();
       showAdminToast('Feed refreshed with latest candidate data.', 'success', 2000);
     });
     DOM.clearAllRecordsBtn.addEventListener('click', handleClearAllRecords);
@@ -685,75 +770,109 @@
   // FACULTY SECURITY PIN AUTHENTICATION GATE
   // ==========================================================================
 
-  const ADMIN_SECURITY_PIN = 'admin123';
-  const SESSION_AUTH_KEY = 'cse_admin_unlocked';
+  function showAdminAuthGate(message) {
+    if (DOM.adminAuthGate) DOM.adminAuthGate.classList.remove('hidden');
+    if (DOM.adminMainWrapper) DOM.adminMainWrapper.classList.add('hidden');
+    if (message) DOM.adminAuthModeLabel.textContent = message;
+  }
 
-  function checkAdminAuth() {
-    const isUnlocked = sessionStorage.getItem(SESSION_AUTH_KEY) === 'true';
-    if (isUnlocked) {
-      if (DOM.adminAuthGate) DOM.adminAuthGate.classList.add('hidden');
-      if (DOM.adminMainWrapper) DOM.adminMainWrapper.classList.remove('hidden');
-      initAdminConsole();
-    } else {
-      if (DOM.adminAuthGate) DOM.adminAuthGate.classList.remove('hidden');
-      if (DOM.adminMainWrapper) DOM.adminMainWrapper.classList.add('hidden');
-      if (DOM.adminPinInput) {
-        DOM.adminPinInput.value = '';
-        setTimeout(() => {
-          if (DOM.adminPinInput) DOM.adminPinInput.focus();
-        }, 150);
+  async function checkAdminAuth() {
+    try {
+      const client = await cloudClientPromise;
+      const { data: sessionData, error } = await client.auth.getSession();
+      if (error) throw error;
+      if (!sessionData || !sessionData.user) {
+        showAdminAuthGate('Sign in with the authorized faculty account to view student records.');
+        return;
       }
+
+      const { data: isAdmin, error: roleError } = await client.rpc('is_quiz_admin');
+      if (roleError) throw roleError;
+      if (isAdmin !== true) {
+        await client.auth.signOut();
+        isAdminVerified = false;
+        showAdminAuthGate('This account is not authorized to view the leaderboard.');
+        return;
+      }
+
+      isAdminVerified = true;
+      DOM.adminAuthGate.classList.add('hidden');
+      DOM.adminMainWrapper.classList.remove('hidden');
+      initAdminConsole();
+    } catch (error) {
+      console.error('Admin authentication check failed:', error);
+      showAdminAuthGate('Could not verify access with the database. Check your connection and sign in again.');
     }
   }
 
-  function handleUnlockSubmit(e) {
+  async function handleUnlockSubmit(e) {
     e.preventDefault();
-    const pin = (DOM.adminPinInput ? DOM.adminPinInput.value : '').trim();
-    if (pin === ADMIN_SECURITY_PIN) {
-      sessionStorage.setItem(SESSION_AUTH_KEY, 'true');
-      if (DOM.pinError) DOM.pinError.classList.remove('visible');
-      if (DOM.adminAuthGate) DOM.adminAuthGate.classList.add('hidden');
-      if (DOM.adminMainWrapper) DOM.adminMainWrapper.classList.remove('hidden');
+    const email = DOM.adminEmailInput.value.trim().toLowerCase();
+    const password = DOM.adminPasswordInput.value;
+    DOM.unlockAdminBtn.disabled = true;
+    DOM.adminAuthSubmitLabel.textContent = 'Connecting...';
+
+    try {
+      const client = await cloudClientPromise;
+      const result = isAdminSignUp
+        ? await client.auth.signUp.email({ email, password, name: 'Faculty Administrator' })
+        : await client.auth.signIn.email({ email, password });
+      if (result.error) throw new Error(result.error.message);
+
+      const { data: isAdmin, error } = await client.rpc('is_quiz_admin');
+      if (error) throw error;
+      if (isAdmin !== true) {
+        await client.auth.signOut();
+        throw new Error('This account is not authorized for the faculty leaderboard.');
+      }
+
+      isAdminVerified = true;
+      DOM.adminAuthGate.classList.add('hidden');
+      DOM.adminMainWrapper.classList.remove('hidden');
+      DOM.adminPasswordInput.value = '';
       initAdminConsole();
-      showAdminToast('Faculty Security PIN Verified. Welcome!', 'success', 3000);
-    } else {
-      if (DOM.pinError) DOM.pinError.classList.add('visible');
-      const card = document.querySelector('.admin-auth-card');
-      if (card) {
-        card.classList.remove('card-shake');
-        void card.offsetWidth;
-        card.classList.add('card-shake');
-      }
-      if (DOM.adminPinInput) {
-        DOM.adminPinInput.focus();
-        DOM.adminPinInput.select();
-      }
+      await refreshCloudRecords();
+      showAdminToast('Faculty account verified. Live leaderboard connected.', 'success', 3500);
+    } catch (error) {
+      console.error('Admin sign-in failed:', error);
+      showAdminAuthGate(error.message || 'Sign-in failed. Check your account and try again.');
+    } finally {
+      DOM.unlockAdminBtn.disabled = false;
+      DOM.adminAuthSubmitLabel.textContent = isAdminSignUp ? 'Create Account' : 'Sign In';
     }
   }
 
-  function handleLockConsole() {
-    sessionStorage.removeItem(SESSION_AUTH_KEY);
+  async function handleLockConsole() {
+    isAdminVerified = false;
+    try {
+      const client = await cloudClientPromise;
+      const { error } = await client.auth.signOut();
+      if (error) throw error;
+    } catch (error) {
+      console.error('Admin sign-out failed:', error);
+      showAdminToast('Unable to sign out cleanly. Close this tab to end the session.', 'warning', 5000);
+    }
     if (DOM.adminMainWrapper) DOM.adminMainWrapper.classList.add('hidden');
     if (DOM.adminAuthGate) DOM.adminAuthGate.classList.remove('hidden');
-    if (DOM.pinError) DOM.pinError.classList.remove('visible');
-    if (DOM.adminPinInput) {
-      DOM.adminPinInput.value = '';
-      setTimeout(() => {
-        if (DOM.adminPinInput) DOM.adminPinInput.focus();
-      }, 100);
-    }
+    DOM.adminPasswordInput.value = '';
     showAdminToast('Faculty Console has been locked.', 'info', 2500);
+  }
+
+  function toggleAdminAuthMode() {
+    isAdminSignUp = !isAdminSignUp;
+    DOM.adminAuthSubmitLabel.textContent = isAdminSignUp ? 'Create Account' : 'Sign In';
+    DOM.adminAuthModeLabel.textContent = isAdminSignUp
+      ? 'Create an account using the authorized faculty email.'
+      : 'Sign in with your authorized faculty account.';
+    DOM.adminAuthModeToggle.textContent = isAdminSignUp ? 'Back to sign in' : 'Create account';
+    DOM.adminPasswordInput.autocomplete = isAdminSignUp ? 'new-password' : 'current-password';
   }
 
   function setupAuthEvents() {
     if (DOM.adminAuthForm) {
       DOM.adminAuthForm.addEventListener('submit', handleUnlockSubmit);
     }
-    if (DOM.adminPinInput) {
-      DOM.adminPinInput.addEventListener('input', () => {
-        if (DOM.pinError) DOM.pinError.classList.remove('visible');
-      });
-    }
+    DOM.adminAuthModeToggle.addEventListener('click', toggleAdminAuthMode);
   }
 
   // Run initialization

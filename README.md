@@ -12,13 +12,13 @@
 - **100% Faithful Question Bank**: Exactly 30 questions, 4 options each, and official faculty answer key extracted with zero omissions, replacements, or alterations.
 - **Strict Tab-Switching Proctoring**: Navigating away from the exam window or switching browser tabs **immediately terminates the assessment** with a proctoring violation auto-submission.
 - **Dedicated Faculty Admin Console (`admin.html`)**: Separate administrative portal featuring real-time session tracking, candidate response auditing, question difficulty matrices, and CSV data export.
-- **Candidate Onboarding**: Validated student registration capturing Student Name and USN with auto-uppercasing.
+- **Student Accounts**: Email/password accounts keep student attempts private and let students resume their active assessment on another device.
 - **Real-Time 30-Minute Timer**: Digital countdown timer with automatic warning alerts at **5 minutes** (amber) and **1 minute** (pulsating red), plus zero-mark timeout auto-submission.
 - **Question Palette (1–30)**: Live tracking of question states (**Current**, **Answered**, **Visited / Unanswered**, **Unvisited**) with direct navigation.
 - **Grading & Scoring Engine**: Automated calculation of Score out of 30, Percentage, Accuracy, and categorized Performance Verdicts based on official bands.
 - **Detailed Conceptual Review**: Comprehensive post-submission review with question status tags (Correct, Incorrect, Unanswered), faculty key highlights, student selection indicators, filter tabs, and expandable conceptual explanations.
-- **Real-Time Inter-Tab Broadcasting**: Uses HTML5 `BroadcastChannel` and `StorageEvent` APIs so the Admin Console automatically reflects student progress, answers, and violations live without manual reloads.
-- **Zero External Dependencies**: Pure Vanilla HTML5, CSS3, and JavaScript — works instantly offline or locally in any modern browser without npm, node, servers, or API keys.
+- **Shared Live Leaderboard**: Student attempts are stored in a dedicated Neon Postgres database and refreshed in the admin portal every three seconds. BroadcastChannel also refreshes sessions immediately when tabs share a browser.
+- **Private Faculty Access**: Neon Auth and row-level security restrict the leaderboard to the faculty email allowlisted in the database; students can access only their own attempts.
 
 ---
 
@@ -26,17 +26,17 @@
 
 | Portal | URL / File | Access / Credentials | Purpose |
 |---|---|---|---|
-| **Student Assessment Portal** | [`index.html`](file:///c:/Users/sjaga/OneDrive/Desktop/Placement%20Quiz/CSE_Placement_Quiz_Arena/index.html) | Direct Access (No Password)<br>*(Zero Admin links on page)* | Mobile-optimized test interface for students: registration, timed MCQ arena, instant score, answer review, and attempt history. |
-| **Faculty Admin Console** | [`admin.html`](file:///c:/Users/sjaga/OneDrive/Desktop/Placement%20Quiz/CSE_Placement_Quiz_Arena/admin.html) | Security PIN: `admin123` | Standalone administrative URL for faculty: real-time proctoring feed, candidate response auditing, violation logs, and CSV export. |
+| **Student Assessment Portal** | [`index.html`](./index.html) | Student email and password account | Mobile-optimized timed assessment, resume support, instant score, answer review, and attempt history. |
+| **Faculty Admin Console** | [`admin.html`](./admin.html) | Neon Auth account using the faculty email allowlisted in the database | Shared live leaderboard, candidate response auditing, violation logs, and CSV export. |
 
 ---
 
 ## 🚀 How to Run Locally
 
-You can run the platform without build tools, dependencies, or a database. Use a lightweight local web server so the student and admin pages share browser storage.
+The hosted app uses Neon Auth and Neon Data API; serve it over HTTP(S) so the browser can load the SDK module and connect to the database.
 
 ### Option 1: Python Built-In HTTP Server (Recommended)
-The student and admin pages must use the **same host and port** to share browser storage and live updates. Do not open the HTML files directly with `file://`, or mix `localhost` and `127.0.0.1`.
+Use the **same host and port** for the student and admin pages when testing locally. Do not open the HTML files directly with `file://`, or mix `localhost` and `127.0.0.1`.
 
 1. Open PowerShell / Command Prompt in the `CSE_Placement_Quiz_Arena` folder and run:
    ```bash
@@ -65,11 +65,22 @@ To enforce academic integrity during student forum placement assessments:
 
 ---
 
+## 🏛️ Shared Student Leaderboard
+
+1. Students create an account with their email, password, name, and USN before starting the assessment. Returning students choose **Sign in instead**.
+2. The assessment creates a shared active-attempt row and updates it as students answer, navigate, and progress through the timer. Students can sign in on another device to resume an active attempt.
+3. Faculty choose **Create account** on the admin portal for the email allowlisted by the database owner, then use that account to sign in. Other accounts cannot query the leaderboard.
+4. The admin portal refreshes active sessions and completed results every three seconds. It shows live question progress, answered count, score after submission, proctoring status, and audit details.
+
+The browser SDK URL in `cloud-client.js` is public configuration, not a database password. Student records are protected with Neon Auth JWTs and PostgreSQL row-level security. Never add a database connection string, role password, or service secret to this static site.
+
+Older attempts stored only in individual browsers are not automatically copied to the shared database. The shared leaderboard contains attempts started after this integration is deployed.
+
 ## 🏛️ Faculty Admin & Oversight Console (`admin.html`)
 
 The separate Admin Console offers an executive, classic academic dashboard:
 1. **Real-Time Live Feed**:
-   - Live synchronization with candidate tabs: reflects new test registrations, answer clicks, question navigation, tab-switch violations, and submissions in real time.
+   - Shared live synchronization across devices: reflects new student accounts and assessment attempts, answer progress, tab-switch violations, and submissions.
 2. **Executive KPI Dashboard**:
    - Total Submissions
    - Cohort Average Score (out of 30) & Mean Accuracy %
@@ -102,6 +113,8 @@ CSE_Placement_Quiz_Arena/
 ├── admin.html       # Standalone Faculty Admin & Audit Console URL
 ├── admin.css        # Executive institutional styling for admin dashboard, tables & inspector
 ├── admin.js         # Real-time listener, KPI calculators, search/filter, audit modal & CSV export
+├── cloud-client.js # Neon Auth and Data API browser client configuration
+├── database-schema.sql # PostgreSQL attempt schema and row-level security policies
 └── README.md        # Comprehensive documentation, test verification log, and user guide
 ```
 

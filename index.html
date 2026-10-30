@@ -66,6 +66,20 @@
 
         <form id="registrationForm" novalidate>
           <div class="form-field">
+            <label for="studentEmailInput">Student Email <span class="required-star">*</span></label>
+            <div class="input-container">
+              <input type="email" id="studentEmailInput" placeholder="you@example.com" autocomplete="email" required>
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label for="studentPasswordInput">Password <span class="required-star">*</span></label>
+            <div class="input-container">
+              <input type="password" id="studentPasswordInput" placeholder="At least 8 characters" autocomplete="current-password" minlength="8" required>
+            </div>
+          </div>
+
+          <div class="form-field">
             <label for="studentNameInput">Full Name <span class="required-star">*</span></label>
             <div class="input-container">
               <svg class="field-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -82,6 +96,11 @@
             </div>
             <div id="usnError" class="validation-message">Please enter a valid USN.</div>
           </div>
+
+          <p class="form-instructions" style="margin-top: 0.5rem;">
+            <span id="studentAuthModeLabel">New student? Create an account.</span>
+            <button type="button" id="studentAuthModeToggle" class="btn btn-ghost btn-sm">Sign in instead</button>
+          </p>
 
           <div class="form-button-group">
             <button type="submit" id="startQuizBtn" class="btn btn-primary btn-cta btn-touch">
@@ -659,6 +678,7 @@
   </div>
 
   <!-- JavaScript Modules -->
+  <script type="module" src="cloud-client.js"></script>
   <script src="questions.js"></script>
   <script src="script.js"></script>
 </body>

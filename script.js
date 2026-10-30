@@ -17,6 +17,8 @@
     ADMIN_FEED: 'cse_quiz_arena_live_feed'
   };
 
+  const cloudClientPromise = import('./cloud-client.js').then(module => module.quizCloud);
+
   const TOTAL_QUESTIONS = QUIZ_QUESTIONS.length; // 30
   const TOTAL_TIME_SECONDS = 30 * 60; // 30 minutes = 1800s
 
@@ -32,6 +34,9 @@
   const state = {
     studentName: '',
     studentUSN: '',
+    cloudUserId: null,
+    cloudAttemptId: null,
+    cloudSyncWarningShown: false,
     currentQuestionIndex: 0, // 0-based (0 to 29)
     userAnswers: {},         // { [questionId]: 'A' | 'B' | 'C' | 'D' }
     visitedQuestions: new Set([1]), // 1-based question IDs
@@ -61,6 +66,10 @@
 
     // Registration Form
     registrationForm: document.getElementById('registrationForm'),
+    studentEmailInput: document.getElementById('studentEmailInput'),
+    studentPasswordInput: document.getElementById('studentPasswordInput'),
+    studentAuthModeLabel: document.getElementById('studentAuthModeLabel'),
+    studentAuthModeToggle: document.getElementById('studentAuthModeToggle'),
     studentNameInput: document.getElementById('studentNameInput'),
     studentUSNInput: document.getElementById('studentUSNInput'),
     nameError: document.getElementById('nameError'),
@@ -253,11 +262,28 @@
   // REGISTRATION & VALIDATION
   // ==========================================================================
 
-  function handleRegistrationSubmit(e) {
+  let isStudentSignUp = true;
+  let cloudSyncTimeout = null;
+  let cloudSyncPending = null;
+  let cloudSyncQueue = Promise.resolve();
+
+  function toggleStudentAuthMode() {
+    isStudentSignUp = !isStudentSignUp;
+    DOM.studentAuthModeLabel.textContent = isStudentSignUp
+      ? 'New student? Create an account.'
+      : 'Already registered? Sign in to your account.';
+    DOM.studentAuthModeToggle.textContent = isStudentSignUp ? 'Sign in instead' : 'Create account';
+    DOM.startQuizBtn.querySelector('span').textContent = isStudentSignUp ? 'Create Account & Start' : 'Sign In & Start';
+    DOM.studentPasswordInput.autocomplete = isStudentSignUp ? 'new-password' : 'current-password';
+  }
+
+  async function handleRegistrationSubmit(e) {
     if (e) e.preventDefault();
 
     const name = DOM.studentNameInput.value.trim();
     const usn = DOM.studentUSNInput.value.trim().toUpperCase();
+    const email = DOM.studentEmailInput.value.trim().toLowerCase();
+    const password = DOM.studentPasswordInput.value;
 
     let isValid = true;
 
@@ -281,9 +307,81 @@
       DOM.usnError.classList.remove('visible');
     }
 
+    if (!DOM.studentEmailInput.validity.valid || !email) {
+      DOM.studentEmailInput.setCustomValidity('Enter a valid email address.');
+      DOM.studentEmailInput.reportValidity();
+      isValid = false;
+    } else {
+      DOM.studentEmailInput.setCustomValidity('');
+    }
+
+    if (password.length < 8) {
+      DOM.studentPasswordInput.setCustomValidity('Password must be at least 8 characters.');
+      DOM.studentPasswordInput.reportValidity();
+      isValid = false;
+    } else {
+      DOM.studentPasswordInput.setCustomValidity('');
+    }
+
     if (!isValid) return;
 
-    // Initialize New Quiz Attempt
+    DOM.startQuizBtn.disabled = true;
+    DOM.startQuizBtn.querySelector('span').textContent = 'Connecting...';
+
+    try {
+      const client = await cloudClientPromise;
+      const authResult = isStudentSignUp
+        ? await client.auth.signUp.email({ email, password, name })
+        : await client.auth.signIn.email({ email, password });
+
+      if (authResult.error) throw new Error(authResult.error.message);
+      const user = authResult.data && authResult.data.user;
+      if (!user || !user.id) throw new Error('Authentication did not return a student account.');
+
+      state.cloudUserId = user.id;
+      state.cloudSyncWarningShown = false;
+      await openOrCreateCloudAttempt(client, name, usn);
+    } catch (error) {
+      console.error('Student sign-in or cloud sync failed:', error);
+      showToast(error.message || 'Could not connect to the student account service. Please try again.', 'warning', 6000);
+    } finally {
+      DOM.startQuizBtn.disabled = false;
+      DOM.startQuizBtn.querySelector('span').textContent = isStudentSignUp ? 'Create Account & Start' : 'Sign In & Start';
+    }
+  }
+
+  async function openOrCreateCloudAttempt(client, name, usn) {
+    const { data: activeAttempts, error: lookupError } = await client
+      .from('quiz_attempts')
+      .select('*')
+      .eq('user_id', state.cloudUserId)
+      .eq('status', 'active')
+      .order('updated_at', { ascending: false })
+      .limit(1);
+
+    if (lookupError) throw lookupError;
+
+    const activeAttempt = activeAttempts && activeAttempts[0];
+    if (activeAttempt) {
+      state.cloudAttemptId = activeAttempt.id;
+      state.studentName = activeAttempt.name;
+      state.studentUSN = activeAttempt.usn;
+      state.currentQuestionIndex = Math.max(0, Number(activeAttempt.current_question || 1) - 1);
+      state.userAnswers = activeAttempt.user_answers || {};
+      state.visitedQuestions = new Set(activeAttempt.visited_questions || [1]);
+      state.remainingSeconds = Number(activeAttempt.remaining_seconds || TOTAL_TIME_SECONDS);
+      state.startTime = activeAttempt.started_at || new Date().toISOString();
+      state.isSubmitted = false;
+      state.isDisqualified = false;
+      state.warned5Min = state.remainingSeconds <= 300;
+      state.warned1Min = state.remainingSeconds <= 60;
+      saveActiveSession();
+      startQuizSession();
+      broadcastToAdmin('SESSION_RESUME');
+      showToast(`Welcome back, ${state.studentName}. Your saved assessment has resumed.`, 'success');
+      return;
+    }
+
     state.studentName = name;
     state.studentUSN = usn;
     state.currentQuestionIndex = 0;
@@ -298,9 +396,93 @@
     state.warned5Min = false;
     state.warned1Min = false;
 
+    const { data: createdAttempts, error: createError } = await client
+      .from('quiz_attempts')
+      .insert({
+        user_id: state.cloudUserId,
+        name: state.studentName,
+        usn: state.studentUSN,
+        status: 'active',
+        started_at: state.startTime
+      })
+      .select('id');
+
+    if (createError) throw createError;
+    if (!createdAttempts || !createdAttempts[0] || !createdAttempts[0].id) {
+      throw new Error('The assessment record was not created in the shared leaderboard.');
+    }
+
+    state.cloudAttemptId = createdAttempts[0].id;
     saveActiveSession();
-    broadcastToAdmin('SESSION_START');
     startQuizSession();
+    broadcastToAdmin('SESSION_START');
+  }
+
+  function cloudAttemptSnapshot(finalResult = null) {
+    const snapshot = {
+      current_question: state.currentQuestionIndex + 1,
+      answered_count: Object.keys(state.userAnswers).length,
+      remaining_seconds: state.remainingSeconds,
+      user_answers: state.userAnswers,
+      visited_questions: Array.from(state.visitedQuestions),
+      updated_at: new Date().toISOString()
+    };
+
+    if (finalResult) {
+      snapshot.status = finalResult.isDisqualified ? 'disqualified' : 'completed';
+      snapshot.score = finalResult.score;
+      snapshot.percentage = finalResult.percentage;
+      snapshot.completed_at = state.endTime || new Date().toISOString();
+      snapshot.is_disqualified = Boolean(finalResult.isDisqualified);
+      snapshot.time_taken = finalResult.timeTakenFormatted;
+      snapshot.verdict_title = finalResult.verdict.title;
+      snapshot.breakdown = finalResult.breakdown;
+    }
+
+    return snapshot;
+  }
+
+  function scheduleCloudAttemptSync(finalResult = null) {
+    if (!state.cloudAttemptId) return Promise.resolve();
+    cloudSyncPending = cloudAttemptSnapshot(finalResult);
+
+    if (cloudSyncTimeout) {
+      clearTimeout(cloudSyncTimeout);
+      cloudSyncTimeout = null;
+    }
+
+    if (finalResult) return flushCloudAttemptSync();
+
+    cloudSyncTimeout = setTimeout(() => {
+      cloudSyncTimeout = null;
+      flushCloudAttemptSync().catch(reportCloudSyncError);
+    }, 500);
+    return Promise.resolve();
+  }
+
+  function flushCloudAttemptSync() {
+    if (!cloudSyncPending) return cloudSyncQueue;
+    const snapshot = cloudSyncPending;
+    const attemptId = state.cloudAttemptId;
+    cloudSyncPending = null;
+
+    cloudSyncQueue = cloudSyncQueue.catch(() => {}).then(async () => {
+      const client = await cloudClientPromise;
+      const { error } = await client
+        .from('quiz_attempts')
+        .update(snapshot)
+        .eq('id', attemptId);
+      if (error) throw error;
+    });
+
+    return cloudSyncQueue;
+  }
+
+  function reportCloudSyncError(error) {
+    console.error('Student leaderboard sync failed:', error);
+    if (state.cloudSyncWarningShown) return;
+    state.cloudSyncWarningShown = true;
+    showToast('Your browser saved the attempt, but the live leaderboard could not sync. Check your connection and keep this page open.', 'warning', 8000);
   }
 
   function checkActiveSession() {
@@ -318,30 +500,25 @@
     }
   }
 
-  function resumeActiveSession() {
+  async function resumeActiveSession() {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.ACTIVE_ATTEMPT);
       if (!saved) return;
       const data = JSON.parse(saved);
+      const client = await cloudClientPromise;
+      const { data: sessionData, error } = await client.auth.getSession();
+      if (error) throw error;
+      if (!sessionData || !sessionData.user) {
+        if (isStudentSignUp) toggleStudentAuthMode();
+        showToast('Sign in with your student account before resuming the saved assessment.', 'warning');
+        return;
+      }
 
-      state.studentName = data.studentName;
-      state.studentUSN = data.studentUSN;
-      state.currentQuestionIndex = data.currentQuestionIndex || 0;
-      state.userAnswers = data.userAnswers || {};
-      state.visitedQuestions = new Set(data.visitedQuestions || [1]);
-      state.remainingSeconds = data.remainingSeconds || TOTAL_TIME_SECONDS;
-      state.startTime = data.startTime || new Date().toISOString();
-      state.isSubmitted = false;
-      state.isDisqualified = false;
-      state.warned5Min = data.remainingSeconds <= 300;
-      state.warned1Min = data.remainingSeconds <= 60;
-
-      startQuizSession();
-      broadcastToAdmin('SESSION_RESUME');
-      showToast(`Welcome back, ${state.studentName}! Your assessment resumed.`, 'success');
+      state.cloudUserId = sessionData.user.id;
+      await openOrCreateCloudAttempt(client, data.studentName, data.studentUSN);
     } catch (e) {
       console.error('Error resuming session:', e);
-      handleRegistrationSubmit();
+      showToast(e.message || 'Could not resume the saved assessment. Sign in and try again.', 'warning', 6000);
     }
   }
 
@@ -357,9 +534,11 @@
         remainingSeconds: state.remainingSeconds,
         startTime: state.startTime,
         isSubmitted: state.isSubmitted,
-        isDisqualified: state.isDisqualified
+        isDisqualified: state.isDisqualified,
+        cloudAttemptId: state.cloudAttemptId
       };
       localStorage.setItem(STORAGE_KEYS.ACTIVE_ATTEMPT, JSON.stringify(payload));
+      scheduleCloudAttemptSync().catch(reportCloudSyncError);
     } catch (e) {
       console.warn('Failed to save session to localStorage:', e);
     }
@@ -726,7 +905,7 @@
     DOM.submitConfirmationModal.classList.remove('active');
   }
 
-  function finalizeQuizSubmission(isAutoSubmit = false, isViolation = false) {
+  async function finalizeQuizSubmission(isAutoSubmit = false, isViolation = false) {
     if (state.isSubmitted) return;
     state.isSubmitted = true;
 
@@ -742,6 +921,11 @@
     const resultData = calculateResults(isViolation);
     saveAttemptHistory(resultData);
     clearActiveSession();
+    try {
+      await scheduleCloudAttemptSync(resultData);
+    } catch (error) {
+      reportCloudSyncError(error);
+    }
 
     broadcastToAdmin('ASSESSMENT_COMPLETED', {
       score: resultData.score,
@@ -1201,6 +1385,7 @@
   function bindEvents() {
     // Registration Form
     DOM.registrationForm.addEventListener('submit', handleRegistrationSubmit);
+    DOM.studentAuthModeToggle.addEventListener('click', toggleStudentAuthMode);
     DOM.resumeTestBtn.addEventListener('click', resumeActiveSession);
     DOM.viewHistoryLandingBtn.addEventListener('click', openHistoryModal);
 
