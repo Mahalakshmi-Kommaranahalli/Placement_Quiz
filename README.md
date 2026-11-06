@@ -41,7 +41,7 @@ Use the **same host and port** for the student and admin pages when testing loca
 1. Open PowerShell / Command Prompt in the `CSE_Placement_Quiz_Arena` folder and run:
    ```bash
    python -m http.server 8080
-   ```
+   
 2. Open the student portal at `http://localhost:8080/index.html`.
 3. Open the admin console at `http://localhost:8080/admin.html`.
 
@@ -63,7 +63,7 @@ To enforce academic integrity during student forum placement assessments:
    - The attempt is flagged as `⚠️ Disqualified (Tab Switch)` with an exact timestamp.
    - A real-time violation event is transmitted to `admin.html` via `BroadcastChannel`.
 
----
+
 
 ## 🏛️ Shared Student Leaderboard
 
